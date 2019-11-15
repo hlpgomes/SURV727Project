@@ -5,7 +5,7 @@ author: "Harold Gomes"
 output: html_notebook
 ---
 
-## Setup
+
 
 ```{r}
 library(tidyverse)
@@ -15,38 +15,98 @@ library(tidyverse)
 
 ### Base Price (Previous)
 ```{r}
-load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-26_4.rda')
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-28_1.rda')
 base_price <- pop2
 names(base_price) <- c("Rank0", "Product_Name", "Count_Review0", "Price0", "Date0", "Day0")
 ```
 
-#### Current Price
+### Current Price
 ```{r}
-load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-27_2.rda')
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-29_1.rda')
 current_price <- pop2
 names(current_price) <- c("Rank1", "Product_Name", "Count_Review1", "Price1", "Date1", "Day1")
 ```
 
 
-#### Inner join 2 datasets to keep the Matched Samples
+### Inner join 2 datasets to keep the Matched Samples
 
 ```{r}
 df <- inner_join(current_price, base_price, by = "Product_Name") %>% 
-  select("Rank1","Rank0", "Product_Name", "Price1","Price0", "Count_Review1","Count_Review0","Date1","Date0","Day1")
+  ### Inspect Price change for Each Laptop ###
+  mutate(., PriceChange = Price1 - Price0) %>%
+  select("Rank1","Rank0", "Product_Name", "Price1","Price0", "PriceChange", "Count_Review1","Count_Review0","Date1","Date0","Day1","Day0")
 head(df)
 nrow(df) ## sample size for matched samples
 ```
-#### Check total Price and pseudo weights to assees how much changed
+### Check total Price and pseudo weights to assees how much changed
 
 ```{r}
 sum(df$Price1)
 sum(df$Price0)
 sum(df$Count_Review0)
 sum(df$Count_Review1)
+sum(df$Price1) - sum(df$Price0)
 ```
 
 
 ##### `## Harold's Note ##`: Next step is to produce various types of index.
 
+### Load Previously saved data
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/data_index.Rda')
+data_previous <- data_index
+```
 
+
+### Compute Index: Laspeyres, Paasche, Geo-means, Tornqvist, Unweighted, and Average Price
+#### Using Tidyverse
+
+```{r}
+df2 <- df %>% 
+  rename(p0=Price0, q0=Count_Review0, p1=Price1, q1=Count_Review1)
+
+Daily_IX <- df2  %>% 
+  ### Laspeyres, Paasche Index ###
+  mutate(., L_IX = sum(q0*p1)/sum(q0*p0),  
+         P_IX = sum(q1*p1)/sum(q1*p0)) %>%
+  
+  ### Geo-means Index ###
+  mutate(., p1_over_p0 = p1/p0,
+         p0q0 = p0*q0,
+         s0 = p0q0 / sum(p0q0),
+         G_IX = prod((p1_over_p0)^s0)) %>% 
+  
+  ### Tornqvist Index ###
+  mutate(., p1q1 = p1*q1,
+         s1 = p1q1 / sum(p1q1),
+         T_IX = prod((p1_over_p0)^((s0+s1)/2))) %>% 
+  
+  ### Unwighted Price Index ###
+  mutate(., Unwgt_IX = mean(p1)/mean(p0)) %>%
+  
+  ### Average Price Index ###
+  mutate(., mn_current = mean(current_price$Price1)) %>%
+  mutate(., mn_base = mean(base_price$Price0)) %>%
+  mutate(., AvePrc_IX = mn_current/mn_base) %>%
+  
+  select(., L_IX, P_IX, G_IX, T_IX, Unwgt_IX, AvePrc_IX, Date1, Day1) %>%
+  distinct(., L_IX, P_IX, G_IX, T_IX, Unwgt_IX, AvePrc_IX, Date1, Day1)
+
+
+head(Daily_IX)
+
+```
+
+
+### Add today's index as a row to the previous data
+```{r}
+data_index <- rbind(data_previous,Daily_IX)
+
+```
+
+
+### Save Data Daily
+```{r}
+save(data_index,file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/data_index.Rda")
+```
 
