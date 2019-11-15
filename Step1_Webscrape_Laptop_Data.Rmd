@@ -2,10 +2,10 @@
 title: "Step 1: Webscrape Amazon Laptop Price Data using HTML Method"
 subtitle: "Final Project"
 author: "Harold Gomes"
-#output: html_notebook
+output: html_notebook
 ---
 
-### R Packages
+## Setup
 
 ```{r}
 library(xml2)
@@ -16,9 +16,9 @@ library(RSocrata)
 library(tidyverse)
 ```
 
-## Web Scraping Amazon Data
+## Web Scraping Example
 
-### Amazon website
+##### Amazon website
 I first check whether robots are allowed on the webpage.
 
 ```{r}
@@ -37,7 +37,7 @@ The following path scrapes the data of `Best Seller Laptops`.
 nds <- html_nodes(url, xpath = '//*[contains(concat( " ", @class, " " ), concat( " ", "zg-item-immersion", " " ))]')
 ```
 
-### Download
+#### Download
 I download the list with all the variables and space, then convert it to the desired format.
 
 ```{r}
@@ -47,7 +47,7 @@ stats_dat <- as.vector(names) ## vector
 stats_dat2 <- str_split(stats_dat, " \n", simplify = TRUE) ## dataframe
 ```
 
-### Loop over 2 pages, so collect 100 best seller laptops.
+#### Loop over 2 pages, so collect 100 best seller laptops.
 
 ```{r}
 stats_dat3 <- NULL
@@ -62,26 +62,20 @@ stats_dat3 <- rbind(stats_dat3,stats_dat2)
 }
 ```
 
-
-
-### Format downloaded data as dataframe. Change variable names.
+#### Format downloaded data as dataframe. Change variable names.
 
 ```{r}
-pop <- stats_dat3[, -3:-5]
+pop <- stats_dat3[, -3:-6]
 pop <- as.data.frame(pop)
-names(pop) <- c("Rank", "Product_Name", "Rating", "Count_Review", "Price")
+names(pop) <- c("Rank", "Product_Name", "Count_Review", "Price")
 str(pop)
 pop2 <- pop
-#pop2_original <- pop
+pop2_original <- pop
 ```
-
-### Updated:: Format numberical variables for analysis
-#### `Sum()` to check  that the numerical data works and reasonable estimate
-https://stevencarlislewalker.wordpress.com/2013/02/13/remove-or-replace-everything-before-or-after-a-specified-character-in-r-strings/
+#### Format numberical variables for analysis
 
 ```{r}
 pop2$Rank <- as.numeric(gsub("[^0123456789]", "", pop2$Rank))
-pop2$Price <-sub('.*\\$', '', pop2$Price) ## This code will delete all charecters before $ sign.
 pop2$Price <- as.numeric(gsub("[^.0123456789]", "", pop2$Price))
 pop2$Count_Review <- as.numeric(gsub("[^.0123456789]", "", pop2$Count_Review))
 #str(pop2[,5])
@@ -89,44 +83,18 @@ sum(pop2$Price)
 sum(pop2$Rank)
 sum(pop2$Count_Review)
 
-sum(pop2$Price, na.rm=TRUE)
-sum(pop2$Count_Review, na.rm=TRUE)
-
 ```
-
-
-### Format Product name and white space. Add date() and day() of the week when data was scrapped / collected from Amazon. Save dataframe.
+#### Format Product name and white space. Add date and day of the week when data was scrapped / collected from Amazon. Save dataframe.
 ```{r}
 library(lubridate)
 pop2$Product_Name <- str_trim(pop2$Product_Name, side = c("both"))
-
-pop2$Rating <- str_trim(pop2$Rating, side = c("both")) ## delet ewhite space first
-pop2$Rating <- sub('\\ .*', '', pop2$Rating) ## This code will delete all charecters after space i.e., \\space.* 
-pop2$Rating <- as.numeric(pop2$Rating)
-sum(pop2$Rating)
-
 pop2$Date <- today()
 pop2$Day <- today()%>% weekdays()
 print(pop2[1:5,])
 ```
 
-
-### Inspect Outliar
-#### Rank Data by Price to inspect any outliars. e.g., if highest price shows 5 figures ( >= $10,000 ), check the website to ascertain.
-```{r}
-pop_ranked <- pop2 %>% arrange(., by_group = desc(Price))
-print(pop_ranked[1:10,3:6])
-
-#pop2 %>% arrange(., by_group = desc(Price)) %>%
-#  print(.[1:10,3:6])
-
-```
-
 ### Save Data Daily
 ```{r}
-save(pop2,stats_dat3, file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/today.Rda")
+save(pop2, pop2_original, file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/today.Rda")
 today()
-
-## `pop2`  Formatted data, ready for analysis
-## `stats_dat3`  Original data matrix downloaded from Amazon
 ```
