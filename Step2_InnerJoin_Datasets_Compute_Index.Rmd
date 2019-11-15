@@ -1,0 +1,52 @@
+---
+title: "Step 2: Matched Samples. Inner join datasets between 2 periods"
+subtitle: "Final Project"
+author: "Harold Gomes"
+output: html_notebook
+---
+
+## Setup
+
+```{r}
+library(tidyverse)
+
+```
+
+
+### Base Price (Previous)
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-26_4.rda')
+base_price <- pop2
+names(base_price) <- c("Rank0", "Product_Name", "Count_Review0", "Price0", "Date0", "Day0")
+```
+
+#### Current Price
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-27_2.rda')
+current_price <- pop2
+names(current_price) <- c("Rank1", "Product_Name", "Count_Review1", "Price1", "Date1", "Day1")
+```
+
+
+#### Inner join 2 datasets to keep the Matched Samples
+
+```{r}
+df <- inner_join(current_price, base_price, by = "Product_Name") %>% 
+  select("Rank1","Rank0", "Product_Name", "Price1","Price0", "Count_Review1","Count_Review0","Date1","Date0","Day1")
+head(df)
+nrow(df) ## sample size for matched samples
+```
+#### Check total Price and pseudo weights to assees how much changed
+
+```{r}
+sum(df$Price1)
+sum(df$Price0)
+sum(df$Count_Review0)
+sum(df$Count_Review1)
+```
+
+
+##### `## Harold's Note ##`: Next step is to produce various types of index.
+
+
+
