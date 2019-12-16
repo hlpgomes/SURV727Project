@@ -1,0 +1,150 @@
+---
+title: "Interactive Plot as an HTML object (similar to D3.js)"
+subtitle: "Daily Price Change Index (%) of Laptop Using Web-Scraped Amazon Data"
+author: Harold Gomes
+output: html_notebook
+fig_width: 8
+fig_height: 6
+---
+
+
+
+
+
+### R package to convert into JavaScript style plot, embedded into HTML 
+I did an independent research to investigate whether there is any R package that would convert R plots into HTML interactive object and would work with R-Markdown. Surprise! I found `library(dygraphs)` that could plot a time series object (`.xts`) into Java script style data visual products. Currently it can only handle time series plots and no other types of plot. 
+https://rstudio.github.io/dygraphs/index.html
+
+### Prototype Development
+Here I am developing a prototype that could display the Price Chance Index to the users and stakeholders. Hence, I could share this as a HTML object to my clients. It gives the ability for interactive plotting, inspect point values by hovering around the data point, and change the axis to the users.  
+
+
+### Load Data
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/data_index.Rda')
+head(data_index)
+```
+
+
+### Load R Package
+```{r}
+library(xts) ## convert dataframe to timeseries object
+library(tidyverse)
+library(dygraphs)  ## Java script style data visuals 
+```
+
+
+### Load data and re-structure
+```{r}
+df0 <- data_index %>%
+  filter(., IX_type=="Proxy_wgt") %>%
+  select(., Date1, L_IX, P_IX, G_IX, F_IX, T_IX, Unwgt_IX)
+
+df1 <- data_index %>%
+  filter(., IX_type=="Popularity_Adj_Proxy_wgt") %>%
+  select(., Date1, L_IX, P_IX, G_IX, F_IX, T_IX, Unwgt_IX) %>%
+  rename(., L_IX_adj=L_IX, P_IX_adj=P_IX, G_IX_adj=G_IX, F_IX_adj=F_IX, T_IX_adj=T_IX, Unwgt_IX_adj=Unwgt_IX)
+```
+
+
+### Convert datafreame into a timeseries object class (.xts). 
+### Merge multiple timeseries objects
+https://cran.r-project.org/web/packages/tsbox/vignettes/tsbox.html
+https://rstudio-pubs-static.s3.amazonaws.com/40873_5fbe3860854a47c38a58aabd01f9cf9d.html
+
+```{r}
+df_proxy <- xts(df0[, -1], df0[, 1])
+head(df_proxy, 5) 
+
+df_pop_adj <- xts(df1[, -1], df1[, 1])
+head(df_pop_adj, 5) 
+
+# Merge 2 TS object into one object
+df_all <- merge(df_proxy, df_pop_adj)
+head(df_all, 5) 
+```
+
+
+## Plotting Index Data
+Next few graphs display the data and presented in various ways.
+
+### User may hover around the datapoints and change the x and y axis by selecting and dragging with the mouse, or with the slider (when available).
+
+### Graph1: Basic Plot
+```{r, fig.width=8, fig.height=4}
+dygraph(df_proxy)
+```
+
+
+### Graph 2: Basic Plot with Slider
+```{r, fig.width=8, fig.height=4}
+dygraph(df_proxy) %>% dyRangeSelector()
+```
+
+
+### Graph3: Change labels of the legend
+Laspeyres, Paasche, Geo-means, Tornqvist, Fisher, Unweighted, and Average Price
+```{r, fig.width=8, fig.height=4}
+dygraph(df_proxy) %>%
+  dySeries("L_IX", label = "Laspeyres") %>%
+  dySeries("P_IX", label = "Paasche") %>%
+  dySeries("G_IX", label = "Geo-means") %>%
+  dySeries("T_IX", label = "Tornqvist") %>%
+  dySeries("F_IX", label = "Fisher") %>%
+   dySeries("Unwgt_IX", label = "Unweighted") %>%
+  dyOptions(stackedGraph = FALSE) %>%
+  dyRangeSelector(height = 20)
+```
+
+
+### Graph4: Customize colors with RColorBrewer. Add Title
+```{r, fig.width=8, fig.height=4}
+dygraph(df_proxy, main = "Daily Laptop Index from Amazon Data (Top 100 Best)") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(6, "Set2")) %>%
+  dyRangeSelector(height = 20) %>%
+  
+  dySeries("L_IX", label = "Laspeyres") %>%
+  dySeries("P_IX", label = "Paasche") %>%
+  dySeries("G_IX", label = "Geo-means") %>%
+  dySeries("T_IX", label = "Tornqvist") %>%
+  dySeries("F_IX", label = "Fisher") %>%
+  dySeries("Unwgt_IX", label = "Unweighted") %>%
+dyOptions(colors = RColorBrewer::brewer.pal(6, "Set3"))
+
+# "dot" (default), "triangle", "square", "diamond", "pentagon", "hexagon", "circle", "star", "plus" or "ex"
+```
+
+
+### Graph5: Display points
+```{r, fig.width=8, fig.height=4}
+dygraph(df_proxy, main = "Daily Laptop Index from Amazon Data (Top 100 Best)") %>%
+  dySeries("L_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+           label = "Laspeyres", color = "blue") %>%
+  dySeries("P_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+           label = "Paasche", color = "red") %>%
+  
+  dySeries("G_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+           label = "Geo-means") %>%
+  dySeries("T_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+           label = "Tornqvist") %>%
+  dySeries("F_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+           label = "Fisher") %>%
+   dySeries("Unwgt_IX", drawPoints = TRUE, pointShape = "triangle", pointSize=4,
+            label = "Unweighted") %>%
+  dyRangeSelector(height = 20) 
+
+# "dot" (default), "triangle", "square", "diamond", "pentagon", "hexagon", "circle", "star", "plus" or "ex"
+ 
+ #dyOptions(colors = RColorBrewer::brewer.pal(3, "Set2"))
+
+```
+
+
+
+The End.
+
+
+
+
+
+
