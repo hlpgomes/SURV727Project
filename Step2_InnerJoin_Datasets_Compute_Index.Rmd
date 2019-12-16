@@ -1,8 +1,8 @@
 ---
-title: "Step 2: Matched Samples. Inner join datasets between 2 periods"
-subtitle: "Final Project"
-author: "Harold Gomes"
-output: html_notebook
+title: "Step 2: Matched Samples.Compute Index"
+subtitle: "Harold Gomes"
+author: ""
+output: #html_notebook 
 ---
 
 
@@ -15,98 +15,246 @@ library(tidyverse)
 
 ### Base Price (Previous)
 ```{r}
-load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-28_1.rda')
-base_price <- pop2
-names(base_price) <- c("Rank0", "Product_Name", "Count_Review0", "Price0", "Date0", "Day0")
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/2019-12-03_2.rda')
+base_price <- pop2 %>%  drop_na(.)
+names(base_price) <- c("Rank0", "Product_Name", "Rating0" ,"Count_Review0", "Price0", "Date0", "Day0")
+base_price
 ```
 
 ### Current Price
 ```{r}
-load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/2019-10-29_1.rda')
-current_price <- pop2
-names(current_price) <- c("Rank1", "Product_Name", "Count_Review1", "Price1", "Date1", "Day1")
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/2019-12-04_1.rda')
+current_price <- pop2 %>%  drop_na(.)
+names(current_price) <- c("Rank1", "Product_Name", "Rating1", "Count_Review1", "Price1", "Date1", "Day1")
+current_price
 ```
 
 
 ### Inner join 2 datasets to keep the Matched Samples
 
 ```{r}
-df <- inner_join(current_price, base_price, by = "Product_Name") %>% 
-  ### Inspect Price change for Each Laptop ###
-  mutate(., PriceChange = Price1 - Price0) %>%
-  select("Rank1","Rank0", "Product_Name", "Price1","Price0", "PriceChange", "Count_Review1","Count_Review0","Date1","Date0","Day1","Day0")
-head(df)
-nrow(df) ## sample size for matched samples
+options(scipen = 999)
+df_join <- inner_join(current_price, base_price, by = "Product_Name") %>% 
+  ### Calculate Price change for Each Laptop ###
+  mutate(., PriceChange = Price1 - Price0,
+         PriceChange_prct = (Price1 - Price0)*100/Price0,
+         PriceChange_prct = round(PriceChange_prct, digits=2)) %>%
+  select("Rank1","Rank0", "Product_Name", "Price1","Price0", "PriceChange", "PriceChange_prct", "Count_Review1","Count_Review0","Rating1", "Rating0","Date1","Date0","Day1","Day0") %>%
+  drop_na(.)
+df_join
+
+### Matched Sample Size out of Top 100 laptops ###
+nrow(df_join)
 ```
+
+
 ### Check total Price and pseudo weights to assees how much changed
 
 ```{r}
-sum(df$Price1)
-sum(df$Price0)
-sum(df$Count_Review0)
-sum(df$Count_Review1)
-sum(df$Price1) - sum(df$Price0)
+rbind(sum(df_join$Price1),
+sum(df_join$Price0),
+sum(df_join$Count_Review0),
+sum(df_join$Count_Review1),
+sum(df_join$Price1) - sum(df_join$Price0))
 ```
 
+### Create Popularity Adjusted Proxy Weight based on Dr. Kern’s Suggestion.
+#### Use suvery design methodology to construct an adjutment factor, calibration factor between sample total into population total, then compute the popularity-adjusted-review (Adj_wgt1, Adj_wgt0)
 
-##### `## Harold's Note ##`: Next step is to produce various types of index.
-
-### Load Previously saved data
 ```{r}
-load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/data_index.Rda')
-data_previous <- data_index
+options(scipen = 999)
+
+df <- df_join %>% 
+  ### Construct Adjustement Factor and  ###
+  mutate(., Adj_fct1 = Rating1/5,
+         Adj_fct0 = Rating0/5,
+         
+         Adj_wgt1_sample = Adj_fct1*Count_Review1,
+         Adj_wgt0_sample = Adj_fct0*Count_Review0) %>% 
+  
+  ### Construct Calibration Factor ###
+  mutate(.,  Calibration_fct1 = sum(Count_Review1) /sum(Adj_wgt1_sample),
+         Calibration_fct0 = sum(Count_Review0) /sum(Adj_wgt0_sample)) %>% 
+  
+  ### Compute Popularity Adjusted Proxy Weight ###
+         mutate(., Adj_wgt1 = round(Adj_wgt1_sample*Calibration_fct1, digits=0),
+                Adj_wgt0 = round(Adj_wgt0_sample*Calibration_fct0, digits=0))
+df
+
+
+### Ascertain that totals match after calibration. Due to rounding, slight error possible ###
+rbind(sum(df$Adj_wgt0),
+sum(df$Count_Review0),
+sum(df$Adj_wgt1),
+sum(df$Count_Review1))
 ```
 
 
-### Compute Index: Laspeyres, Paasche, Geo-means, Tornqvist, Unweighted, and Average Price
+### `## Harold's Note ##`: Next step is to produce various types of index.
+
+## Compute Index: Laspeyres, Paasche, Geo-means, Tornqvist, Fisher, Unweighted, and Average Price
 #### Using Tidyverse
 
 ```{r}
 df2 <- df %>% 
   rename(p0=Price0, q0=Count_Review0, p1=Price1, q1=Count_Review1)
 
-Daily_IX <- df2  %>% 
+###############################
+### compute Index Relatives ###
+###############################
+Daily_IXrel <- df2  %>% 
   ### Laspeyres, Paasche Index ###
-  mutate(., L_IX = sum(q0*p1)/sum(q0*p0),  
-         P_IX = sum(q1*p1)/sum(q1*p0)) %>%
+  mutate(., L_IXrel = sum(q0*p1)/sum(q0*p0),  
+         P_IXrel = sum(q1*p1)/sum(q1*p0)) %>%
   
   ### Geo-means Index ###
   mutate(., p1_over_p0 = p1/p0,
          p0q0 = p0*q0,
          s0 = p0q0 / sum(p0q0),
-         G_IX = prod((p1_over_p0)^s0)) %>% 
+         G_IXrel = prod((p1_over_p0)^s0)) %>% 
   
   ### Tornqvist Index ###
   mutate(., p1q1 = p1*q1,
          s1 = p1q1 / sum(p1q1),
-         T_IX = prod((p1_over_p0)^((s0+s1)/2))) %>% 
+         T_IXrel = prod((p1_over_p0)^((s0+s1)/2))) %>% 
+  
+  ### Fisher Index ###
+  mutate(., F_IXrel = sqrt(L_IXrel*P_IXrel)) %>%
   
   ### Unwighted Price Index ###
-  mutate(., Unwgt_IX = mean(p1)/mean(p0)) %>%
+  mutate(., Unwgt_IXrel = sum(p1)/sum(p0)) %>%
   
   ### Average Price Index ###
-  mutate(., mn_current = mean(current_price$Price1)) %>%
-  mutate(., mn_base = mean(base_price$Price0)) %>%
-  mutate(., AvePrc_IX = mn_current/mn_base) %>%
-  
-  select(., L_IX, P_IX, G_IX, T_IX, Unwgt_IX, AvePrc_IX, Date1, Day1) %>%
-  distinct(., L_IX, P_IX, G_IX, T_IX, Unwgt_IX, AvePrc_IX, Date1, Day1)
+  mutate(., AvePrc = round(mean(current_price$Price1), digits=2)) %>%
+  select(., L_IXrel, P_IXrel, G_IXrel, F_IXrel, T_IXrel, Unwgt_IXrel, AvePrc, Date1, Day1) %>%
+  distinct(., L_IXrel, P_IXrel, G_IXrel, F_IXrel, T_IXrel, Unwgt_IXrel, AvePrc, Date1, Day1)
 
 
-head(Daily_IX)
+#####################
+### compute Index ###
+#####################
+Daily_IX_proxy <- Daily_IXrel %>%
+  mutate(L_IX=round((L_IXrel-1)*100, digits=3), 
+         P_IX=round((P_IXrel-1)*100, digits=3), 
+         G_IX=round((G_IXrel-1)*100, digits=3),
+         F_IX=round((F_IXrel-1)*100, digits=3),
+         T_IX=round((T_IXrel-1)*100, digits=3),
+         Unwgt_IX=round((Unwgt_IXrel-1)*100, digits=3),
+         IX_type="Proxy_wgt", n_matched=nrow(df2))
 
 ```
 
+### Popularity adjusted proxy weight. Re-run it to compute the index and append it to previous dataset
+#### Using Tidyverse
 
+
+```{r}
+df2 <- df %>% 
+  rename(p0=Price0, q0=Adj_wgt0, p1=Price1, q1=Adj_wgt1)
+
+###############################
+### compute Index Relatives ###
+###############################
+Daily_IXrel <- df2  %>% 
+  ### Laspeyres, Paasche Index ###
+  mutate(., L_IXrel = sum(q0*p1)/sum(q0*p0),  
+         P_IXrel = sum(q1*p1)/sum(q1*p0)) %>%
+  
+  ### Geo-means Index ###
+  mutate(., p1_over_p0 = p1/p0,
+         p0q0 = p0*q0,
+         s0 = p0q0 / sum(p0q0),
+         G_IXrel = prod((p1_over_p0)^s0)) %>% 
+  
+  ### Tornqvist Index ###
+  mutate(., p1q1 = p1*q1,
+         s1 = p1q1 / sum(p1q1),
+         T_IXrel = prod((p1_over_p0)^((s0+s1)/2))) %>% 
+  
+  ### Fisher Index ###
+  mutate(., F_IXrel = sqrt(L_IXrel*P_IXrel)) %>%
+  
+  ### Unwighted Price Index ###
+  mutate(., Unwgt_IXrel = sum(p1)/sum(p0)) %>%
+  
+  ### Average Price Index ###
+  mutate(., AvePrc = round(mean(current_price$Price1), digits=2)) %>%
+  select(., L_IXrel, P_IXrel, G_IXrel, F_IXrel, T_IXrel, Unwgt_IXrel, AvePrc, Date1, Day1) %>%
+  distinct(., L_IXrel, P_IXrel, G_IXrel, F_IXrel, T_IXrel, Unwgt_IXrel, AvePrc, Date1, Day1)
+
+
+#####################
+### compute Index ###
+#####################
+Daily_IX_Adj <- Daily_IXrel %>%
+  mutate(L_IX=round((L_IXrel-1)*100, digits=3), 
+         P_IX=round((P_IXrel-1)*100, digits=3), 
+         G_IX=round((G_IXrel-1)*100, digits=3),
+         F_IX=round((F_IXrel-1)*100, digits=3),
+         T_IX=round((T_IXrel-1)*100, digits=3),
+         Unwgt_IX=round((Unwgt_IXrel-1)*100, digits=3),
+         IX_type="Popularity_Adj_Proxy_wgt", n_matched=nrow(df2))
+
+
+##############################
+### Append 2 type of Index ###
+##############################
+Daily_IX <- rbind(Daily_IX_proxy, Daily_IX_Adj)
+Daily_IX
+```
+
+
+
+
+#################################
+###  Next Load and Save Data  ###
+#################################
+
+
+### Load Previously saved data ##
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/data_index.Rda')
+data_previous <- data_index
+data_previous
+```
 ### Add today's index as a row to the previous data
 ```{r}
 data_index <- rbind(data_previous,Daily_IX)
+data_index
 
 ```
-
-
 ### Save Data Daily
 ```{r}
-save(data_index,file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data_Laptop/data_index.Rda")
+save(data_index,file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/data_index.Rda")
 ```
+
+
+
+
+###===========================================================###
+
+### Keep Price Change Data for each laptop for data visualization
+
+```{r}
+df_PC <- df %>% drop_na(PriceChange)  %>%
+  select("Product_Name", "PriceChange", "PriceChange_prct", "Count_Review1", "Count_Review0", "Date1","Day1")
+df_PC
+```
+### Load Previously saved data
+```{r}
+load('S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/data_PC.Rda')
+data_previous_PC <- data_PC
+data_previous_PC
+```
+### Add today's index as a row to the previous data
+```{r}
+data_PC <- rbind(data_previous_PC, df_PC)
+data_PC
+
+```
+### Save Data Daily
+```{r}
+save(data_PC,file="S:/SURV727_Fundamental_Computing_DataDisplay/Final_Project/Amazon/Data/data_PC.Rda")
+```
+
 

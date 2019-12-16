@@ -1,8 +1,8 @@
 ---
-title: "Step 1: Webscrape Amazon Laptop Price Data using HTML Method"
-subtitle: "Final Project"
+title: 'Step 1: Webscrape Amazon Laptop Price Data using HTML Method'
 author: "Harold Gomes"
-#output: html_notebook
+subtitle: Final Project
+output: pdf_document
 ---
 
 ### R Packages
