@@ -1,7 +1,8 @@
-###########################################################
-###############        SURV727Project         #############
-##### Description of Each R Program and what is does  #####
-###########################################################
+SURV727Project
+
+## Description of Each R Program and what is does  ##
+
+
 Step1_Webscrape_Laptop_Data.Rmd: 
 This program connects to Amazon website and scrapes the data of
 100 best laptops using a loop. It uses various data wrangling techniques and string functions to manipulate
