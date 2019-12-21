@@ -1,6 +1,6 @@
 SURV727Project
 
-## Description of each R Program and what is does  ##
+## Description of each R Program and what it does  ##
 
 
 Step1_Webscrape_Laptop_Data.Rmd: 
